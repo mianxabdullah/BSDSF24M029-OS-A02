@@ -7,6 +7,7 @@
 *       % lsv1.0.0  /home
 *       $ lsv1.0.0  /home/kali/   /etc/
 */
+#include <sys/ioctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -23,6 +24,7 @@ extern int errno;
 void do_ls(const char *dir, int long_flag);
 void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
+void print_columns(char **names, int count, int maxlen);
 
 int main(int argc, char *argv[])
 {
@@ -67,23 +69,52 @@ void do_ls(const char *dir, int long_flag)
         fprintf(stderr, "Cannot open directory : %s\n", dir);
         return;
     }
+
+    char **names = NULL;
+    int count = 0, capacity = 0, maxlen = 0;
+
     errno = 0;
     while ((entry = readdir(dp)) != NULL)
     {
         if (entry->d_name[0] == '.')
             continue;
-        if (long_flag)
-    	    print_long(dir, entry->d_name);
-	else
-    	    printf("%s\n", entry->d_name);
+
+        if (count == capacity)
+        {
+            capacity = capacity ? capacity * 2 : 16;
+            names = realloc(names, capacity * sizeof(char *));
+            if (names == NULL)
+            {
+                perror("realloc");
+                closedir(dp);
+                return;
+            }
+        }
+
+        names[count] = strdup(entry->d_name);
+        int len = strlen(entry->d_name);
+        if (len > maxlen)
+            maxlen = len;
+        count++;
     }
 
     if (errno != 0)
-    {
         perror("readdir failed");
+    closedir(dp);
+
+    if (long_flag)
+    {
+        for (int i = 0; i < count; i++)
+            print_long(dir, names[i]);
+    }
+    else
+    {
+        print_columns(names, count, maxlen);
     }
 
-    closedir(dp);
+    for (int i = 0; i < count; i++)
+        free(names[i]);
+    free(names);
 }
 
 void print_long(const char *dir, const char *name)
@@ -142,4 +173,30 @@ void mode_to_str(mode_t mode, char *str)
     if (mode & S_ISVTX) str[9] = (mode & S_IXOTH) ? 't' : 'T';
 
     str[10] = '\0';
+}
+
+void print_columns(char **names, int count, int maxlen)
+{
+    struct winsize ws;
+    int width = 80; /* fallback */
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        width = ws.ws_col;
+
+    int colw = maxlen + 2;          /* longest name + 2 spaces */
+    int cols = width / colw;
+    if (cols < 1)
+        cols = 1;
+    int rows = (count + cols - 1) / cols;   /* ceiling division */
+
+    for (int r = 0; r < rows; r++)
+    {
+        for (int c = 0; c < cols; c++)
+        {
+            int idx = r + c * rows;         /* down, then across */
+            if (idx < count)
+                printf("%-*s", colw, names[idx]);
+        }
+        printf("\n");
+    }
 }
