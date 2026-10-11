@@ -25,6 +25,7 @@ void do_ls(const char *dir, enum display_mode mode);
 void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
 void print_columns(char **names, int count, int maxlen);
+void print_horizontal(char **names, int count, int maxlen);
 
 int main(int argc, char *argv[])
 {
@@ -105,14 +106,18 @@ void do_ls(const char *dir, enum display_mode mode)
         perror("readdir failed");
     closedir(dp);
 
-    if (mode == MODE_LONG)
+    switch (mode)
     {
+    case MODE_LONG:
         for (int i = 0; i < count; i++)
             print_long(dir, names[i]);
-    }
-    else
-    {
+        break;
+    case MODE_HORIZONTAL:
+        print_horizontal(names, count, maxlen);
+        break;
+    default:
         print_columns(names, count, maxlen);
+        break;
     }
 
     for (int i = 0; i < count; i++)
@@ -202,4 +207,28 @@ void print_columns(char **names, int count, int maxlen)
         }
         printf("\n");
     }
+}
+
+void print_horizontal(char **names, int count, int maxlen)
+{
+    struct winsize ws;
+    int width = 80; /* fallback */
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        width = ws.ws_col;
+
+    int colw = maxlen + 2;
+    int pos = 0; /* current horizontal position */
+
+    for (int i = 0; i < count; i++)
+    {
+        if (pos > 0 && pos + colw > width)
+        {
+            printf("\n");
+            pos = 0;
+        }
+        printf("%-*s", colw, names[i]);
+        pos += colw;
+    }
+    printf("\n");
 }
