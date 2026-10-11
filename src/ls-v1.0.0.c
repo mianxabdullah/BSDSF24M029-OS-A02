@@ -26,6 +26,7 @@ void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
 void print_columns(char **names, int count, int maxlen);
 void print_horizontal(char **names, int count, int maxlen);
+int compare_names(const void *a, const void *b);
 
 int main(int argc, char *argv[])
 {
@@ -105,6 +106,8 @@ void do_ls(const char *dir, enum display_mode mode)
     if (errno != 0)
         perror("readdir failed");
     closedir(dp);
+
+    qsort(names, count, sizeof(char *), compare_names);
 
     switch (mode)
     {
@@ -231,4 +234,11 @@ void print_horizontal(char **names, int count, int maxlen)
         pos += colw;
     }
     printf("\n");
+}
+
+int compare_names(const void *a, const void *b)
+{
+    const char *s1 = *(char *const *)a;
+    const char *s2 = *(char *const *)b;
+    return strcmp(s1, s2);
 }
