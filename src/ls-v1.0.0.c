@@ -20,8 +20,8 @@
 #include <time.h>
 
 extern int errno;
-
-void do_ls(const char *dir, int long_flag);
+enum display_mode { MODE_DEFAULT, MODE_LONG, MODE_HORIZONTAL };
+void do_ls(const char *dir, enum display_mode mode);
 void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
 void print_columns(char **names, int count, int maxlen);
@@ -29,38 +29,41 @@ void print_columns(char **names, int count, int maxlen);
 int main(int argc, char *argv[])
 {
     int opt;
-    int long_flag = 0;
+    enum display_mode mode = MODE_DEFAULT;
 
-    while ((opt = getopt(argc, argv, "l")) != -1)
+    while ((opt = getopt(argc, argv, "lx")) != -1)
     {
         switch (opt)
         {
         case 'l':
-            long_flag = 1;
+            mode = MODE_LONG;
+            break;
+        case 'x':
+            mode = MODE_HORIZONTAL;
             break;
         default:
-            fprintf(stderr, "Usage: %s [-l] [dir...]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-l | -x] [dir...]\n", argv[0]);
             exit(1);
         }
     }
 
     if (optind == argc)
     {
-        do_ls(".", long_flag);
+        do_ls(".", mode);
     }
     else
     {
         for (int i = optind; i < argc; i++)
         {
             printf("Directory listing of %s : \n", argv[i]);
-            do_ls(argv[i], long_flag);
+            do_ls(argv[i], mode);
             puts("");
         }
     }
     return 0;
 }
 
-void do_ls(const char *dir, int long_flag)
+void do_ls(const char *dir, enum display_mode mode)
 {
     struct dirent *entry;
     DIR *dp = opendir(dir);
@@ -102,7 +105,7 @@ void do_ls(const char *dir, int long_flag)
         perror("readdir failed");
     closedir(dp);
 
-    if (long_flag)
+    if (mode == MODE_LONG)
     {
         for (int i = 0; i < count; i++)
             print_long(dir, names[i]);
