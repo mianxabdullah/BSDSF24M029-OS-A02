@@ -41,3 +41,17 @@ With a fixed width of 80, the output would not adapt. On a wide terminal, space 
 ## Q2: How did you manage the different display modes? How does the program decide which function to call?
 
 I used an `enum display_mode` with three values: `MODE_DEFAULT`, `MODE_LONG` and `MODE_HORIZONTAL`. The `getopt()` loop in `main` sets the variable `mode` when it sees `-l` or `-x`, and `mode` is passed to `do_ls()`. After `do_ls()` has read all filenames into an array, a `switch (mode)` calls the matching function: `print_long()` for `-l`, `print_horizontal()` for `-x`, and `print_columns()` (down then across) as the default. Adding a new mode only needs a new enum value, a new case, and a new print function.
+
+# Feature-5 Report Questions (ls-v1.4.0)
+
+## Q1: Why must all entries be read into memory before sorting? What are the drawbacks for directories with millions of files?
+
+`readdir()` returns entries in whatever order the file system stores them, one at a time. A sort needs to compare every entry with the others, so the complete list must exist before the first item can be printed. A name that comes last in the directory may belong first alphabetically.
+
+For a directory with millions of files, this has two drawbacks. Memory use grows with the number of entries (every name is copied with `strdup` and the pointer array keeps growing through `realloc`). Also, nothing is printed until the whole directory has been read and sorted, so the user waits a long time and sees no output. Sorting itself also costs O(n log n) time.
+
+## Q2: What is the purpose and signature of the qsort() comparison function? Why const void * arguments?
+
+`qsort()` is a generic function that sorts an array of any type, so it cannot know how to compare the elements. The comparison function tells it. The signature is `int compare(const void *a, const void *b)`. It must return a negative number if `a` should come before `b`, zero if they are equal, and a positive number if `a` should come after `b`.
+
+`qsort()` passes pointers to the array elements. Since the elements here are `char *`, each argument is really a `char **`, so the function casts it (`*(char *const *)a`) to get the string and then calls `strcmp()`. The parameters are `const void *` because `qsort()` works with any element type, and `void *` is the generic pointer type in C. `const` promises that the comparison will not modify the elements being sorted.
