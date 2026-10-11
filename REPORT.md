@@ -29,3 +29,15 @@ A single loop over the array prints names in sequential order (0, 1, 2, ...), wh
 `ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws)` asks the terminal driver for the current window size (`ws.ws_col` is the number of columns), so the program can fit as many columns as the terminal can actually show.
 
 With a fixed width of 80, the output would not adapt. On a wide terminal, space would be wasted and the listing would be longer than needed. On a narrow terminal (less than 80 columns), lines would wrap in the middle of the layout and the columns would be misaligned. The program also could not react to the window being resized.
+
+# Feature-4 Report Questions (ls-v1.3.0)
+
+## Q1: Compare the complexity of "down then across" vs "across" printing. Which needs more pre-calculation?
+
+"Down then across" is more complex. Before printing anything it must know the total number of files, the number of columns that fit (`terminal_width / column_width`), and the number of rows (`ceil(count / columns)`). Printing then needs a nested loop with the index formula `names[row + col * rows]`.
+
+"Across" needs almost no pre-calculation. It only needs the column width and the terminal width. It loops over the array once in order, prints each name padded to the column width, and keeps a running position counter. When the next name would exceed the terminal width, it prints a newline and resets the counter.
+
+## Q2: How did you manage the different display modes? How does the program decide which function to call?
+
+I used an `enum display_mode` with three values: `MODE_DEFAULT`, `MODE_LONG` and `MODE_HORIZONTAL`. The `getopt()` loop in `main` sets the variable `mode` when it sees `-l` or `-x`, and `mode` is passed to `do_ls()`. After `do_ls()` has read all filenames into an array, a `switch (mode)` calls the matching function: `print_long()` for `-l`, `print_horizontal()` for `-x`, and `print_columns()` (down then across) as the default. Adding a new mode only needs a new enum value, a new case, and a new print function.
