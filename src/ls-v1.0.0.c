@@ -31,8 +31,8 @@ enum display_mode { MODE_DEFAULT, MODE_LONG, MODE_HORIZONTAL };
 void do_ls(const char *dir, enum display_mode mode);
 void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
-void print_columns(char **names, int count, int maxlen);
-void print_horizontal(char **names, int count, int maxlen);
+void print_columns(const char *dir, char **names, int count, int maxlen);
+void print_horizontal(const char *dir, char **names, int count, int maxlen);
 int compare_names(const void *a, const void *b);
 void print_colored(const char *dir, const char *name);
 
@@ -124,10 +124,10 @@ void do_ls(const char *dir, enum display_mode mode)
             print_long(dir, names[i]);
         break;
     case MODE_HORIZONTAL:
-        print_horizontal(names, count, maxlen);
+        print_horizontal(dir, names, count, maxlen);
         break;
     default:
-        print_columns(names, count, maxlen);
+        print_columns(dir, names, count, maxlen);
         break;
     }
 
@@ -198,33 +198,7 @@ void mode_to_str(mode_t mode, char *str)
     str[10] = '\0';
 }
 
-void print_columns(char **names, int count, int maxlen)
-{
-    struct winsize ws;
-    int width = 80; /* fallback */
-
-    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
-        width = ws.ws_col;
-
-    int colw = maxlen + 2;          /* longest name + 2 spaces */
-    int cols = width / colw;
-    if (cols < 1)
-        cols = 1;
-    int rows = (count + cols - 1) / cols;   /* ceiling division */
-
-    for (int r = 0; r < rows; r++)
-    {
-        for (int c = 0; c < cols; c++)
-        {
-            int idx = r + c * rows;         /* down, then across */
-            if (idx < count)
-                printf("%-*s", colw, names[idx]);
-        }
-        printf("\n");
-    }
-}
-
-void print_horizontal(char **names, int count, int maxlen)
+void print_columns(const char *dir, char **names, int count, int maxlen)
 {
     struct winsize ws;
     int width = 80; /* fallback */
@@ -233,7 +207,36 @@ void print_horizontal(char **names, int count, int maxlen)
         width = ws.ws_col;
 
     int colw = maxlen + 2;
-    int pos = 0; /* current horizontal position */
+    int cols = width / colw;
+    if (cols < 1)
+        cols = 1;
+    int rows = (count + cols - 1) / cols;
+
+    for (int r = 0; r < rows; r++)
+    {
+        for (int c = 0; c < cols; c++)
+        {
+            int idx = r + c * rows;
+            if (idx < count)
+            {
+                print_colored(dir, names[idx]);
+                printf("%*s", colw - (int)strlen(names[idx]), "");
+            }
+        }
+        printf("\n");
+    }
+}
+
+void print_horizontal(const char *dir, char **names, int count, int maxlen)
+{
+    struct winsize ws;
+    int width = 80; /* fallback */
+
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        width = ws.ws_col;
+
+    int colw = maxlen + 2;
+    int pos = 0;
 
     for (int i = 0; i < count; i++)
     {
@@ -242,7 +245,8 @@ void print_horizontal(char **names, int count, int maxlen)
             printf("\n");
             pos = 0;
         }
-        printf("%-*s", colw, names[i]);
+        print_colored(dir, names[i]);
+        printf("%*s", colw - (int)strlen(names[i]), "");
         pos += colw;
     }
     printf("\n");
