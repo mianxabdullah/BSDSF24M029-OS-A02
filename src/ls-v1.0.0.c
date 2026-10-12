@@ -19,6 +19,13 @@
 #include <grp.h>
 #include <time.h>
 
+#define COLOR_RESET   "\033[0m"
+#define COLOR_BLUE    "\033[0;34m"
+#define COLOR_GREEN   "\033[0;32m"
+#define COLOR_RED     "\033[0;31m"
+#define COLOR_PINK    "\033[0;35m"
+#define COLOR_REVERSE "\033[7m"
+
 extern int errno;
 enum display_mode { MODE_DEFAULT, MODE_LONG, MODE_HORIZONTAL };
 void do_ls(const char *dir, enum display_mode mode);
@@ -27,6 +34,7 @@ void mode_to_str(mode_t mode, char *str);
 void print_columns(char **names, int count, int maxlen);
 void print_horizontal(char **names, int count, int maxlen);
 int compare_names(const void *a, const void *b);
+void print_colored(const char *dir, const char *name);
 
 int main(int argc, char *argv[])
 {
@@ -128,6 +136,7 @@ void do_ls(const char *dir, enum display_mode mode)
     free(names);
 }
 
+
 void print_long(const char *dir, const char *name)
 {
     char path[1024];
@@ -146,16 +155,19 @@ void print_long(const char *dir, const char *name)
     }
 
     mode_to_str(st.st_mode, perms);
+
     pw = getpwuid(st.st_uid);
     gr = getgrgid(st.st_gid);
     if (pw) snprintf(owner, sizeof(owner), "%s", pw->pw_name);
     else    snprintf(owner, sizeof(owner), "%u", st.st_uid);
     if (gr) snprintf(group, sizeof(group), "%s", gr->gr_name);
     else    snprintf(group, sizeof(group), "%u", st.st_gid);
-    printf("%s %3lu %-8s %-8s %8ld %.12s %s\n", perms,
-           (unsigned long)st.st_nlink, owner, group,
-           (long)st.st_size, ctime(&st.st_mtime) + 4, name);
 
+    printf("%s %3lu %-8s %-8s %8ld %.12s ", perms,
+           (unsigned long)st.st_nlink, owner, group,
+           (long)st.st_size, ctime(&st.st_mtime) + 4);
+    print_colored(dir, name);
+    printf("\n");
 }
 
 void mode_to_str(mode_t mode, char *str)
@@ -241,4 +253,31 @@ int compare_names(const void *a, const void *b)
     const char *s1 = *(char *const *)a;
     const char *s2 = *(char *const *)b;
     return strcmp(s1, s2);
+}
+
+void print_colored(const char *dir, const char *name)
+{
+    char path[1024];
+    struct stat st;
+    const char *color = "";
+
+    snprintf(path, sizeof(path), "%s/%s", dir, name);
+
+    if (lstat(path, &st) == 0)
+    {
+        mode_t m = st.st_mode;
+
+        if (S_ISLNK(m))
+            color = COLOR_PINK;
+        else if (S_ISDIR(m))
+            color = COLOR_BLUE;
+        else if (S_ISCHR(m) || S_ISBLK(m) || S_ISSOCK(m) || S_ISFIFO(m))
+            color = COLOR_REVERSE;
+        else if (strstr(name, ".tar") || strstr(name, ".gz") || strstr(name, ".zip"))
+            color = COLOR_RED;
+        else if (m & (S_IXUSR | S_IXGRP | S_IXOTH))
+            color = COLOR_GREEN;
+    }
+
+    printf("%s%s%s", color, name, COLOR_RESET);
 }
