@@ -55,3 +55,24 @@ For a directory with millions of files, this has two drawbacks. Memory use grows
 `qsort()` is a generic function that sorts an array of any type, so it cannot know how to compare the elements. The comparison function tells it. The signature is `int compare(const void *a, const void *b)`. It must return a negative number if `a` should come before `b`, zero if they are equal, and a positive number if `a` should come after `b`.
 
 `qsort()` passes pointers to the array elements. Since the elements here are `char *`, each argument is really a `char **`, so the function casts it (`*(char *const *)a`) to get the string and then calls `strcmp()`. The parameters are `const void *` because `qsort()` works with any element type, and `void *` is the generic pointer type in C. `const` promises that the comparison will not modify the elements being sorted.
+
+# Feature-6 Report Questions (ls-v1.5.0)
+
+## Q1: How do ANSI escape codes produce color? Show the sequence for green text.
+
+ANSI escape codes are special character sequences that the terminal interprets as commands instead of printing them. A sequence starts with the escape character (`\033`, ASCII 27) followed by `[`, then one or more numbers separated by `;`, and ends with `m`, which means "set text style". The terminal applies the style to everything printed afterwards, until a reset code (`\033[0m`) restores the defaults.
+
+Green text:
+```c
+printf("\033[0;32m%s\033[0m", "hello");
+```
+`\033[0;32m` switches on green (`32` is the green foreground color), `hello` is printed in green, and `\033[0m` resets the color. Because the codes take up bytes but no screen space, `printf("%-*s")` padding miscounts colored names, so in my code the padding is added separately after printing the name.
+
+## Q2: Which bits of st_mode determine whether a file is executable by owner, group, or others?
+
+Three permission bits are checked, each with bitwise AND:
+- `st_mode & S_IXUSR` (0100): execute permission for the owner
+- `st_mode & S_IXGRP` (0010): execute permission for the group
+- `st_mode & S_IXOTH` (0001): execute permission for others
+
+If any of them is non-zero, the file is executable by someone, and my code colors it green. A directory also has these bits set, so the directory check (`S_ISDIR`) must come first, otherwise directories would be colored as executables.
