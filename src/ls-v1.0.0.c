@@ -28,7 +28,7 @@
 
 extern int errno;
 enum display_mode { MODE_DEFAULT, MODE_LONG, MODE_HORIZONTAL };
-void do_ls(const char *dir, enum display_mode mode);
+void do_ls(const char *dir, enum display_mode mode, int recursive);
 void print_long(const char *dir, const char *name);
 void mode_to_str(mode_t mode, char *str);
 void print_columns(const char *dir, char **names, int count, int maxlen);
@@ -40,8 +40,9 @@ int main(int argc, char *argv[])
 {
     int opt;
     enum display_mode mode = MODE_DEFAULT;
+    int recursive = 0;
 
-    while ((opt = getopt(argc, argv, "lx")) != -1)
+    while ((opt = getopt(argc, argv, "lxR")) != -1)
     {
         switch (opt)
         {
@@ -51,30 +52,36 @@ int main(int argc, char *argv[])
         case 'x':
             mode = MODE_HORIZONTAL;
             break;
+        case 'R':
+            recursive = 1;
+            break;
         default:
-            fprintf(stderr, "Usage: %s [-l | -x] [dir...]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-l | -x] [-R] [dir...]\n", argv[0]);
             exit(1);
         }
     }
 
     if (optind == argc)
     {
-        do_ls(".", mode);
+        do_ls(".", mode, recursive);
     }
     else
     {
         for (int i = optind; i < argc; i++)
         {
-            printf("Directory listing of %s : \n", argv[i]);
-            do_ls(argv[i], mode);
+            if (!recursive)
+                printf("Directory listing of %s : \n", argv[i]);
+            do_ls(argv[i], mode, recursive);
             puts("");
         }
     }
     return 0;
 }
 
-void do_ls(const char *dir, enum display_mode mode)
+void do_ls(const char *dir, enum display_mode mode, int recursive)
 {
+    (void)recursive; /* used in the next commit */
+
     struct dirent *entry;
     DIR *dp = opendir(dir);
     if (dp == NULL)
@@ -135,7 +142,6 @@ void do_ls(const char *dir, enum display_mode mode)
         free(names[i]);
     free(names);
 }
-
 
 void print_long(const char *dir, const char *name)
 {
