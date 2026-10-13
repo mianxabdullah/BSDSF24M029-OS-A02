@@ -76,3 +76,17 @@ Three permission bits are checked, each with bitwise AND:
 - `st_mode & S_IXOTH` (0001): execute permission for others
 
 If any of them is non-zero, the file is executable by someone, and my code colors it green. A directory also has these bits set, so the directory check (`S_ISDIR`) must come first, otherwise directories would be colored as executables.
+
+# Feature-7 Report Questions (ls-v1.6.0)
+
+## Q1: What is a "base case" in a recursive function? What is the base case in your recursive ls?
+
+The base case is the condition under which a recursive function stops calling itself and returns directly. Without it the recursion would never end.
+
+In my `do_ls`, the base case is a directory that contains no subdirectories: the loop over its entries finds no `S_ISDIR` entry, so no further recursive call is made and the function returns. A directory that cannot be opened (`opendir()` returns NULL) is also a base case, since the function prints an error and returns. Hidden entries (including `.` and `..`) are skipped when reading, so the function never recurses into the current or parent directory. Using `lstat()` means symbolic links to directories are not followed, which prevents loops.
+
+## Q2: Why must a full path be built before the recursive call? What if do_ls("subdir") was called from do_ls("parent_dir")?
+
+`opendir()` and `lstat()` resolve relative names against the current working directory of the process, which does not change when `do_ls` descends into a directory. The entry name alone (`subdir`) only means something relative to its parent, so the program needs the full path (`parent_dir/subdir`).
+
+If `do_ls("subdir")` was called directly, the program would look for `subdir` in the directory where it was started. It would either fail with "Cannot open directory" or, worse, list a different directory that happens to have the same name. Nested levels would fail in the same way. The full path is also what is printed in the `dir:` header, so the output shows exactly where each listing comes from.
