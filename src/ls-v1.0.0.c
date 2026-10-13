@@ -69,19 +69,26 @@ int main(int argc, char *argv[])
     {
         for (int i = optind; i < argc; i++)
         {
-            if (!recursive)
+            if (recursive)
+            {
+                if (i > optind)
+                    puts("");
+            }
+            else
+            {
                 printf("Directory listing of %s : \n", argv[i]);
+            }
             do_ls(argv[i], mode, recursive);
-            puts("");
+            if (!recursive)
+                puts("");
         }
     }
     return 0;
 }
 
+
 void do_ls(const char *dir, enum display_mode mode, int recursive)
 {
-    (void)recursive; /* used in the next commit */
-
     struct dirent *entry;
     DIR *dp = opendir(dir);
     if (dp == NULL)
@@ -89,6 +96,9 @@ void do_ls(const char *dir, enum display_mode mode, int recursive)
         fprintf(stderr, "Cannot open directory : %s\n", dir);
         return;
     }
+
+    if (recursive)
+        printf("%s:\n", dir);
 
     char **names = NULL;
     int count = 0, capacity = 0, maxlen = 0;
@@ -136,6 +146,24 @@ void do_ls(const char *dir, enum display_mode mode, int recursive)
     default:
         print_columns(dir, names, count, maxlen);
         break;
+    }
+
+    if (recursive)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            char path[1024];
+            struct stat st;
+
+            snprintf(path, sizeof(path), "%s/%s", dir, names[i]);
+            if (lstat(path, &st) == -1)
+                continue;
+            if (S_ISDIR(st.st_mode))
+            {
+                printf("\n");
+                do_ls(path, mode, recursive);
+            }
+        }
     }
 
     for (int i = 0; i < count; i++)
